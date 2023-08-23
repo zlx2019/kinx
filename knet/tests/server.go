@@ -46,7 +46,7 @@ func main() {
 
 	// 3.运行服务
 	if err = loop.Serve(listener); err != nil {
-		panic("start nio tcp server failed")
+		panic("start async tcp server failed")
 	}
 }
 
