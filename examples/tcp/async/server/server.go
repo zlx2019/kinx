@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// 非阻塞式TCP服务 - 服务端
 func main() {
 	// 创建服务
 	asyncServer := server.NewAsyncServer("[kinx V0.1]", "tcp", "127.0.0.1", 9898)
@@ -28,7 +29,7 @@ func main() {
 	})
 
 	// 注册可读事件处理事件
-	asyncServer.OnReadHandler(func(ctx context.Context, session kiface.ISession) error {
+	asyncServer.OnHandler(func(ctx context.Context, session kiface.ISession) error {
 		message, err := session.Read(time.Second)
 		if err != nil {
 			return err

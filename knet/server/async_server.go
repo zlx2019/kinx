@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/cloudwego/netpoll"
-	"github.com/zlx2019/kinx/kiface"
+	"github.com/zlx2019/kinx/kiface/async"
 	"log"
 	"net"
 	"time"
@@ -25,10 +25,10 @@ type AsyncServer struct {
 	// 服务端端口
 	Port int
 
-	onPrepare kiface.OnAsyncPrepareHandler // 连接初始化事件
-	onConnect kiface.OnAsyncConnectHandler // 连接完成事件
-	onRead    kiface.OnAsyncReadHandler    // 连接读取事件
-	onClosed  kiface.OnAsyncClosedHandler  // 连接关闭事件
+	onPrepare async.OnAsyncPrepareHandler // 连接初始化事件
+	onConnect async.OnAsyncConnectHandler // 连接完成事件
+	onRead    async.OnAsyncHandler        // 连接读取事件
+	onClosed  async.OnAsyncClosedHandler  // 连接关闭事件
 
 	nextSessionID uint32
 	// 连接是否开启空闲超时处理，空闲超时则强制关闭连接，默认为false;
@@ -42,37 +42,37 @@ type AsyncServer struct {
 }
 
 // OnOptions 注册服务端配置
-func (as *AsyncServer) OnOptions(opts ...kiface.AsyncServerOption) {
+func (as *AsyncServer) OnOptions(opts ...async.AsyncServerOption) {
 	for _, option := range opts {
 		option(as)
 	}
 }
 
 // OnPrepare 注册[连接初始化事件]处理函数
-func (as *AsyncServer) OnPrepare(prepareHandler kiface.OnAsyncPrepareHandler) {
+func (as *AsyncServer) OnPrepare(prepareHandler async.OnAsyncPrepareHandler) {
 	as.onPrepare = prepareHandler
 }
 
 // OnConnect 注册[连接完成事件]处理函数
-func (as *AsyncServer) OnConnect(connectHandler kiface.OnAsyncConnectHandler) {
+func (as *AsyncServer) OnConnect(connectHandler async.OnAsyncConnectHandler) {
 	as.onConnect = connectHandler
 }
 
-// OnReadHandler 注册[连接读取事件]处理函数
-// 当连接中有可读数据时，会回调 onRead 函数
-func (as *AsyncServer) OnReadHandler(readHandler kiface.OnAsyncReadHandler) {
+// OnHandler 注册[连接读取事件]处理函数
+// 当连接中有可读数据时，会回调 OnHandler 函数
+func (as *AsyncServer) OnHandler(readHandler async.OnAsyncHandler) {
 	as.onRead = readHandler
 }
 
 // OnClosed 注册[连接关闭事件]处理函数
-func (as *AsyncServer) OnClosed(closedHandler kiface.OnAsyncClosedHandler) {
+func (as *AsyncServer) OnClosed(closedHandler async.OnAsyncClosedHandler) {
 	as.onClosed = closedHandler
 }
 
 // NewAsyncServer 创建NewNIOServer服务
 // @param	name		服务名称
 // @param	protocol	服务协议
-func NewAsyncServer(name, protocol, ip string, port int) kiface.IAsyncServer {
+func NewAsyncServer(name, protocol, ip string, port int) async.IAsyncServer {
 	// 创建服务实例
 	s := &AsyncServer{
 		Name:          name,

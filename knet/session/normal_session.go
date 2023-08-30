@@ -29,8 +29,12 @@ type NormalSession struct {
 	isIdleTimeout bool
 	// 会话空闲超时时间，连接空闲超过该时间强制关闭
 	idleTimeout time.Duration
+
 	// 会话连接数据事件处理
-	onReadHandler kiface.OnHandler
+	onHandler kiface.OnHandler
+	// 会话连接关闭事件处理
+	onClosed kiface.OnClosedHandler
+
 	// 连接心跳通道，读取到连接的数据后刷新一下心跳，表示处于活跃
 	active chan struct{}
 	// 消息输出通道，将要发送给本会话的数据添加到该通道内，由写协程读取并且发送给连接
@@ -40,16 +44,16 @@ type NormalSession struct {
 }
 
 // NewNormalSession 创建连接会话
-func NewNormalSession(id uint32, conn net.Conn, handle kiface.OnHandler, ctx context.Context, isIdleTimeout bool, idleTimeout time.Duration) *NormalSession {
+func NewNormalSession(id uint32, conn net.Conn, handle kiface.OnHandler, closedHandler kiface.OnClosedHandler, ctx context.Context, isIdleTimeout bool, idleTimeout time.Duration) *NormalSession {
 	return &NormalSession{
 		ID:            id,
 		Conn:          conn,
 		IsClosed:      false,
-		onReadHandler: handle,
+		onHandler:     handle,
+		onClosed:      closedHandler,
 		isIdleTimeout: isIdleTimeout,
 		idleTimeout:   idleTimeout,
 		Context:       ctx,
-		active:        make(chan struct{}),
 		outChannel:    make(chan kiface.IMessage, 16),
 		packer:        packer.NewNormalPacker(),
 	}
@@ -61,11 +65,12 @@ func (ns *NormalSession) Rnu() {
 	go ns.Reader()
 	go ns.Writer()
 	if ns.isIdleTimeout {
-		go ns.idleTimeouter()
+		ns.active = make(chan struct{})
+		go ns.idleTimeOuter()
 	}
 }
 
-// Reader 连接会话的读任务,读取连接的数据，回调 onReadHandler 函数进行处理
+// Reader 连接会话的读任务,读取连接的数据，回调 onHandler 函数进行处理
 func (ns *NormalSession) Reader() {
 	fmt.Printf("Session ID: %d Reader Work Running... \n", ns.ID)
 	// 循环读取数据
@@ -80,9 +85,10 @@ func (ns *NormalSession) Reader() {
 				// 关闭读协程
 				fmt.Printf("Session ID: %d Reader Work Shutdown... \n", ns.ID)
 				// 将会话标记为已关闭
-				ns.IsClosed = true
+				//ns.IsClosed = true
 				// 关闭会话的消息通道，借此关闭写协程
-				close(ns.outChannel)
+				//close(ns.outChannel)
+				ns.Stop()
 				return
 			} else if e, ok := err.(net.Error); ok && e.Timeout() {
 				// 本次读取数据超时
@@ -92,10 +98,10 @@ func (ns *NormalSession) Reader() {
 			continue
 		}
 		// 读取到会话连接的数据，回调注册的处理函数
-		if ns.onReadHandler != nil {
-			err = ns.onReadHandler(ns, message)
+		if ns.onHandler != nil {
+			err = ns.onHandler(ns, message)
 			if err != nil {
-				fmt.Printf("Session ID: %d onRadHandler error: %s \n", ns.ID, err.Error())
+				fmt.Printf("Session ID: %d onHandler error: %s \n", ns.ID, err.Error())
 				ns.Stop()
 			}
 		}
@@ -123,13 +129,13 @@ func (ns *NormalSession) Send(message kiface.IMessage) {
 	ns.outChannel <- message
 }
 
-// Timeouter 会话的心跳检测器，超过指定时间未接到心跳则超时
-func (ns *NormalSession) idleTimeouter() {
+// idleTimeOuter 会话的心跳检测器，超过指定时间未接到心跳则超时
+func (ns *NormalSession) idleTimeOuter() {
 	for {
 		select {
 		case <-ns.active:
 			// 接收心跳信号，保持活跃
-		case <-time.After(time.Second * 10):
+		case <-time.After(ns.idleTimeout):
 			// 会话连接超时退出
 			_, _ = ns.GetConn().Write([]byte("您超时了!"))
 			ns.Stop()
@@ -175,9 +181,17 @@ func (ns *NormalSession) GetRemoteAddr() net.Addr {
 
 // Stop 关闭会话
 func (ns *NormalSession) Stop() {
-	// 将会话标记为已关闭
-	ns.IsClosed = true
-	_ = ns.Conn.Close()
+	// 防止重复关闭两次，因为如果是连接超时关闭，会执行两次该函数.
+	if !ns.IsClosed {
+		// 将会话标记为已关闭
+		ns.IsClosed = true
+		// 关闭会话的消息通道，借此关闭写协程
+		close(ns.outChannel)
+		// 执行 连接关闭的回调函数
+		_ = ns.onClosed(ns.Conn)
+		// 关闭连接
+		_ = ns.Conn.Close()
+	}
 }
 
 // IsClose 会话是否已关闭

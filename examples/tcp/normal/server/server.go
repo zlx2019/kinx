@@ -10,15 +10,32 @@ import (
 	"github.com/zlx2019/kinx/kiface"
 	"github.com/zlx2019/kinx/knet/server"
 	"net"
+	"time"
 )
 
 // NewNormalServer 案例一: 基于事件回调模型开发
+// 阻塞式TCP服务 - 服务端
 
 func main() {
 	// 创建服务
-	server := server.NewNormalServer("[kinx V1.0]", "tcp", "127.0.0.1", 9780, MyConnectHandler, MyHandler)
+	s := server.NewNormalServer("[kinx V1.0]", "127.0.0.1", 9780)
+	// 设置事件处理函数
+	s.OnConnect(func(conn net.Conn) context.Context {
+		fmt.Printf("[%s] 已连接... \n", conn.RemoteAddr())
+		return context.Background()
+	})
+	s.OnHandler(func(session kiface.ISession, message kiface.IMessage) error {
+		msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
+		fmt.Println(msg)
+		return nil
+	})
+	s.OnClosed(func(conn net.Conn) error {
+		fmt.Printf("[%s] 已关闭... \n", conn.RemoteAddr())
+		return nil
+	})
+	s.SetIdleTimeout(time.Second * 30)
 	// 启动服务
-	err := server.Run()
+	err := s.Run()
 	if err != nil {
 		panic(err)
 	}

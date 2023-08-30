@@ -34,29 +34,62 @@ type NormalServer struct {
 	idleTimeout time.Duration
 	// 服务端关闭信号
 	stopTrigger chan struct{}
-	// 读取事件处理函数
-	onReadHandler kiface.OnHandler
-	// 连接事件处理函数
+
+	// 连接事件 回调函数
 	onConnectHandler kiface.OnConnectHandler
+	// 读取事件处理函数
+	onHandler kiface.OnHandler
+	// 连接关闭 回调函数
+	onClosedHandler kiface.OnClosedHandler
+
 	// 服务端的TCP服务监听器
 	listener net.Listener
 }
 
 // NewNormalServer 创建服务端
-func NewNormalServer(name, protocol, ip string, port int, connectHandler kiface.OnConnectHandler, handler kiface.OnHandler) *NormalServer {
-	return &NormalServer{
-		Name:             name,
-		Protocol:         protocol,
-		IP:               ip,
-		Port:             port,
-		nextSessionID:    1,
-		isRunning:        false,
-		isIdleTimeout:    true,
-		idleTimeout:      time.Second * 30,
-		stopTrigger:      make(chan struct{}),
-		onReadHandler:    handler,
-		onConnectHandler: connectHandler,
+// @param	name	服务名
+// @param	ip		服务IP
+// @param	port	服务端口
+// @param	opts	服务配置
+func NewNormalServer(name, ip string, port int, opts ...kiface.BlockServerOption) kiface.IBlockServer {
+	server := &NormalServer{
+		Name:        name,
+		Protocol:    "tcp",
+		IP:          ip,
+		Port:        port,
+		stopTrigger: make(chan struct{}),
 	}
+	// 注册要设置的配置
+	server.OnOptions(opts...)
+	return server
+}
+
+// OnOptions 注册服务的配置选项
+func (n *NormalServer) OnOptions(options ...kiface.BlockServerOption) {
+	for _, option := range options {
+		option(n)
+	}
+}
+
+// OnConnect 注册[连接完成事件]处理函数
+func (n *NormalServer) OnConnect(connectHandler kiface.OnConnectHandler) {
+	n.onConnectHandler = connectHandler
+}
+
+// OnHandler 注册[连接读取事件]处理函数
+func (n *NormalServer) OnHandler(handler kiface.OnHandler) {
+	n.onHandler = handler
+}
+
+// OnClosed 注册[连接关闭事件]处理函数
+func (n *NormalServer) OnClosed(closedHandler kiface.OnClosedHandler) {
+	n.onClosedHandler = closedHandler
+}
+
+// SetIdleTimeout 开启连接空闲超时,并且设置超时时间
+func (n *NormalServer) SetIdleTimeout(timeout time.Duration) {
+	n.isIdleTimeout = true
+	n.idleTimeout = timeout
 }
 
 // Run 运行服务，并且阻塞监听连接
@@ -105,7 +138,7 @@ func (n *NormalServer) GetSession() (kiface.ISession, error) {
 	if n.onConnectHandler != nil {
 		ctx = n.onConnectHandler(conn)
 	}
-	session := session.NewNormalSession(n.nextSessionID, conn, n.onReadHandler, ctx, n.isIdleTimeout, n.idleTimeout)
+	session := session.NewNormalSession(n.nextSessionID, conn, n.onHandler, n.onClosedHandler, ctx, n.isIdleTimeout, n.idleTimeout)
 	return session, nil
 }
 
@@ -143,7 +176,7 @@ func (n *NormalServer) start() {
 			ctx = n.onConnectHandler(conn)
 		}
 		// 根据连接，创建一个连接会话，并且启动会话
-		session.NewNormalSession(n.nextSessionID, conn, n.onReadHandler, ctx, n.isIdleTimeout, n.idleTimeout).Rnu()
+		session.NewNormalSession(n.nextSessionID, conn, n.onHandler, n.onClosedHandler, ctx, n.isIdleTimeout, n.idleTimeout).Rnu()
 		// ID自增
 		n.nextSessionID++
 	}
