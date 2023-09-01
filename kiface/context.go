@@ -6,8 +6,8 @@ package kiface
 
 // IHandlerContext 会话的一次数据处理上下文接口
 type IHandlerContext interface {
-	// GetConn 获取会话
-	GetConn() ISession
+	// GetSession 获取会话
+	GetSession() ISession
 	// GetMessage 获取本次会话接收到的数据
 	GetMessage() IMessage
 	// Put 设置上下文数据

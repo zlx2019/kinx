@@ -2,7 +2,7 @@
 // @Description
 // @Author Zero - 2023/9/1 09:13:13
 
-package contexts
+package knet
 
 import (
 	"context"
@@ -35,10 +35,12 @@ func NewHandlerContext(s kiface.ISession, m kiface.IMessage) kiface.IHandlerCont
 	}
 }
 
-func (hc *HandlerContext) GetConn() kiface.ISession {
+// GetSession 获取上下文所属的会话
+func (hc *HandlerContext) GetSession() kiface.ISession {
 	return hc.s
 }
 
+// GetMessage 获取要处理的数据消息
 func (hc *HandlerContext) GetMessage() kiface.IMessage {
 	return hc.message
 }

@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/zlx2019/kinx/kiface"
-	"github.com/zlx2019/kinx/knet/server"
+	"github.com/zlx2019/kinx/knet"
 	"net"
 	"time"
 )
@@ -18,10 +18,13 @@ import (
 
 func main() {
 	// 创建服务端
-	s := server.NewNormalServer("[kinx V1.0]", "127.0.0.1", 9780)
-	// 设置处理器
-	s.OnHandler(&CustomHandler{})
-	s.SetIdleTimeout(time.Second * 30)
+	s := knet.NewNormalServer("[kinx V1.0]", "127.0.0.1", 9780,
+		// 设置协程池数量
+		knet.WithPool(1000),
+		// 设置连接空闲超时时间
+		knet.WithIdleTimeout(time.Hour*30),
+		// 设置处理器
+		knet.WithHandler(&CustomHandler{}))
 	// 启动服务
 	err := s.Run()
 	if err != nil {
@@ -40,6 +43,7 @@ func (c *CustomHandler) OnConnectHandler(conn net.Conn) context.Context {
 }
 
 func (c *CustomHandler) OnHandler(ctx kiface.IHandlerContext) error {
+	ctx.GetSession()
 	message := ctx.GetMessage()
 	msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
 	fmt.Println(msg)

@@ -1,14 +1,14 @@
-// @Title normal_server.go
+// @Title server.go
 // @Description 同步阻塞式服务端实现
 // @Author Zero - 2023/8/21 13:35:03
 
-package server
+package knet
 
 import (
 	"context"
 	"fmt"
+	"github.com/panjf2000/ants/v2"
 	"github.com/zlx2019/kinx/kiface"
-	"github.com/zlx2019/kinx/knet/session"
 	"net"
 	"time"
 )
@@ -35,6 +35,8 @@ type NormalServer struct {
 	stopTrigger chan struct{}
 	// 会话处理器
 	handler kiface.IHandler
+	// 协程池
+	pool *ants.Pool
 	// 服务端的TCP服务监听器
 	listener net.Listener
 }
@@ -44,7 +46,7 @@ type NormalServer struct {
 // @param	ip		服务IP
 // @param	port	服务端口
 // @param	opts	服务配置
-func NewNormalServer(name, ip string, port int, opts ...kiface.BlockServerOption) kiface.IBlockServer {
+func NewNormalServer(name, ip string, port int, opts ...NormalServerOption) kiface.IServer {
 	server := &NormalServer{
 		name:        name,
 		protocol:    "tcp",
@@ -53,26 +55,8 @@ func NewNormalServer(name, ip string, port int, opts ...kiface.BlockServerOption
 		stopTrigger: make(chan struct{}),
 	}
 	// 注册要设置的配置
-	server.OnOptions(opts...)
+	server.onOptions(opts...)
 	return server
-}
-
-// OnHandler 注册服务的数据处理器
-func (n *NormalServer) OnHandler(handler kiface.IHandler) {
-	n.handler = handler
-}
-
-// OnOptions 注册服务的配置选项
-func (n *NormalServer) OnOptions(options ...kiface.BlockServerOption) {
-	for _, option := range options {
-		option(n)
-	}
-}
-
-// SetIdleTimeout 开启连接空闲超时,并且设置超时时间
-func (n *NormalServer) SetIdleTimeout(timeout time.Duration) {
-	n.isIdleTimeout = true
-	n.idleTimeout = timeout
 }
 
 // Run 运行服务，并且阻塞监听连接
@@ -85,8 +69,9 @@ func (n *NormalServer) Run() error {
 	// 标记服务为运行状态
 	n.isRunning = true
 	fmt.Printf("%s running successful. address in: %s \n", n.name, n.listener.Addr().String())
-	// 启动连接处理，开始接收客户端连接并且处理
-	go n.start()
+
+	// 开启协程任务，开始接收客户端连接并且处理
+	_ = n.pool.Submit(n.start)
 
 	//TODO 额外业务处理
 
@@ -121,7 +106,7 @@ func (n *NormalServer) GetSession() (kiface.ISession, error) {
 	if n.handler != nil {
 		ctx = n.handler.OnConnectHandler(conn)
 	}
-	session := session.NewNormalSession(n.nextSessionID, conn, n.handler, ctx, nil, n.isIdleTimeout, n.idleTimeout)
+	session := NewNormalSession(n.nextSessionID, conn, n.handler, ctx, nil, n.isIdleTimeout, n.idleTimeout)
 	return session, nil
 }
 
@@ -152,6 +137,12 @@ func (n *NormalServer) start() {
 		if err != nil {
 			continue
 		}
+		// 判断当前协程池内数量是否够用
+		if !n.checkTaskQuantity() {
+			_, _ = conn.Write([]byte("当前系统繁忙，请稍后再试~"))
+			_ = conn.Close()
+			continue
+		}
 		fmt.Printf("Conn session successful. ID of: %d \n", n.nextSessionID)
 		// 连接建立完成，回调连接建立事件处理函数，获取自定义的会话的上下文
 		var ctx context.Context
@@ -161,10 +152,27 @@ func (n *NormalServer) start() {
 		// 创建会话的上下文，用于控制会话的退出
 		sessionCtx, cancel := context.WithCancel(ctx)
 		// 根据连接，创建一个连接会话，并且启动会话
-		session.NewNormalSession(n.nextSessionID, conn, n.handler, sessionCtx, cancel, n.isIdleTimeout, n.idleTimeout).Rnu()
+		session := NewNormalSession(n.nextSessionID, conn, n.handler, sessionCtx, cancel, n.isIdleTimeout, n.idleTimeout)
+
+		// 启动3个协程，分别执行读、写任务以及心跳监控
+		_ = n.pool.Submit(session.Reader)
+		_ = n.pool.Submit(session.Writer)
+		if n.isIdleTimeout {
+			_ = n.pool.Submit(session.idleTimeOuter)
+		}
 		// ID自增
 		n.nextSessionID++
+
+		fmt.Printf("[%s] 会话运行成功，当前系统任务运行数量: %d \n", session.GetRemoteAddr(), n.pool.Running())
 	}
+}
+
+// 查看当前可用的空闲协程是否足够
+func (n *NormalServer) checkTaskQuantity() bool {
+	if n.isIdleTimeout {
+		return n.pool.Free() >= 3
+	}
+	return n.pool.Free() >= 2
 }
 
 // Shutdown 停止服务

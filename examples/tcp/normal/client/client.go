@@ -6,8 +6,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/zlx2019/kinx/knet/message"
-	"github.com/zlx2019/kinx/knet/packer"
+	"github.com/zlx2019/kinx/knet"
 	"net"
 	"os"
 	"strings"
@@ -18,7 +17,7 @@ func main() {
 	// 连接服务端
 	conn, _ := net.Dial("tcp", "127.0.0.1:9780")
 	// 打包器
-	pack := packer.NewNormalPacker()
+	pack := knet.NewNormalPacker()
 	stdin := bufio.NewReader(os.Stdin)
 	var msgId uint64 = 0
 	for {
@@ -27,7 +26,7 @@ func main() {
 			_ = conn.Close()
 			break
 		}
-		p, _ := pack.Pack(message.NewMessage(msgId, line))
+		p, _ := pack.Pack(knet.NewMessage(msgId, line))
 		_, _ = conn.Write(p)
 	}
 }

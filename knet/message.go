@@ -2,7 +2,7 @@
 // @Description	 消息数据包实现
 // @Author Zero - 2023/8/21 16:36:01
 
-package message
+package knet
 
 import "github.com/zlx2019/kinx/kiface"
 

@@ -1,13 +1,12 @@
-// @Title normal_packer.go
+// @Title packer.go
 // @Description
 // @Author Zero - 2023/8/21 17:05:10
 
-package packer
+package knet
 
 import (
 	"encoding/binary"
 	"github.com/zlx2019/kinx/kiface"
-	"github.com/zlx2019/kinx/knet/message"
 	"io"
 )
 
@@ -64,5 +63,5 @@ func (packer *NormalPacker) UnPack(reader io.Reader) (kiface.IMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return message.NewMessage(id, payloadBuf), nil
+	return NewMessage(id, payloadBuf), nil
 }

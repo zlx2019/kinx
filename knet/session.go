@@ -1,15 +1,13 @@
-// @Title normal_session.go
+// @Title session.go
 // @Description
 // @Author Zero - 2023/8/21 14:24:27
 
-package session
+package knet
 
 import (
 	"context"
 	"fmt"
 	"github.com/zlx2019/kinx/kiface"
-	"github.com/zlx2019/kinx/knet/contexts"
-	"github.com/zlx2019/kinx/knet/packer"
 	"io"
 	"net"
 	"time"
@@ -55,13 +53,13 @@ func NewNormalSession(id uint32, conn net.Conn, handler kiface.IHandler, ctx con
 		context:       ctx,
 		cancel:        cancel,
 		outChannel:    make(chan kiface.IMessage, 16),
-		packer:        packer.NewNormalPacker(),
+		packer:        NewNormalPacker(),
 	}
 }
 
 // Rnu 启动会话
 func (ns *NormalSession) Rnu() {
-	// 启动两个协程，分别执行读和写任务
+	// 启动3个协程，分别执行读、写任务以及心跳监控
 	go ns.Reader()
 	go ns.Writer()
 	if ns.isIdleTimeout {
@@ -95,7 +93,7 @@ func (ns *NormalSession) Reader() {
 		}
 		// 读取到会话连接的数据，回调注册的处理函数链
 		if ns.handler != nil {
-			ctx := contexts.NewHandlerContext(ns, message)
+			ctx := NewHandlerContext(ns, message)
 			if err := ns.handler.OnHandler(ctx); err != nil {
 				ns.Stop()
 			}
