@@ -17,22 +17,10 @@ import (
 // 阻塞式TCP服务 - 服务端
 
 func main() {
-	// 创建服务
+	// 创建服务端
 	s := server.NewNormalServer("[kinx V1.0]", "127.0.0.1", 9780)
-	// 设置事件处理函数
-	s.OnConnect(func(conn net.Conn) context.Context {
-		fmt.Printf("[%s] 已连接... \n", conn.RemoteAddr())
-		return context.Background()
-	})
-	s.OnHandler(func(session kiface.ISession, message kiface.IMessage) error {
-		msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
-		fmt.Println(msg)
-		return nil
-	})
-	s.OnClosed(func(conn net.Conn) error {
-		fmt.Printf("[%s] 已关闭... \n", conn.RemoteAddr())
-		return nil
-	})
+	// 设置处理器
+	s.OnHandler(&CustomHandler{})
 	s.SetIdleTimeout(time.Second * 30)
 	// 启动服务
 	err := s.Run()
@@ -41,25 +29,24 @@ func main() {
 	}
 }
 
-// MyConnectHandler 连接事件处理函数，初始化会话的上下文
-func MyConnectHandler(conn net.Conn) context.Context {
-	// 向上下文中放入数据
-	return context.WithValue(context.Background(), "SessionName", "zeros")
+// CustomHandler 自定义处理器，要求实现 IHandler 接口
+type CustomHandler struct {
+	kiface.SuperHandler
 }
 
-// MyHandler 数据读取事件处理
-// session： 触发事件的会话连接
-// message:  读取到的消息数据
-func MyHandler(session kiface.ISession, message kiface.IMessage) error {
-	// 输出消息体
+func (c *CustomHandler) OnConnectHandler(conn net.Conn) context.Context {
+	fmt.Printf("[%s] 已连接... \n", conn.RemoteAddr())
+	return context.Background()
+}
+
+func (c *CustomHandler) OnHandler(ctx kiface.IHandlerContext) error {
+	message := ctx.GetMessage()
 	msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
 	fmt.Println(msg)
+	return nil
+}
 
-	// 读取会话上下文中的自定义数据
-	name := session.GetContext().Value("SessionName").(string)
-	fmt.Println(name)
-
-	// 回写数据
-	_ = session.Write(message)
+func (c *CustomHandler) OnClosedHandler(conn net.Conn) error {
+	fmt.Printf("[%s] 已关闭... \n", conn.RemoteAddr())
 	return nil
 }

@@ -7,13 +7,13 @@ package server
 // OnPrepare 连接初始化时会执行的处理函数
 // 用于在连接初始化时注入自定义准备，这是可选的,但在某些情况下很重要。
 // 返回的context上下文将成为 OnConnect和OnRequest的参数。
-//func (as *AsyncServer) OnPrepare(connection netpoll.Connection) context.Context {
+//func (as *AsyncServer) OnPrepare(connection netpoll.Connection) context.context {
 //	// 可以在这里向下传递一些K-V参数
 //	return nil
 //}
 
 // onConnect 连接创建完成后会执行的处理函数
-//func (as *AsyncServer) onConnect(ctx context.Context, connection netpoll.Connection) context.Context {
+//func (as *AsyncServer) onConnect(ctx context.context, connection netpoll.Connection) context.context {
 //	log.Printf("[%s] 连接建立成功.\n", connection.RemoteAddr().String())
 //	// 注册连接关闭处理函数
 //	_ = connection.AddCloseCallback(as.OnClose)
@@ -38,7 +38,7 @@ package server
 //
 //// 连接空闲处理
 //// 当连接处于空闲一定时间后，主动将连接踢下线
-//func (as *AsyncServer) onIdleTimeout(ctx context.Context, connection netpoll.Connection) context.Context {
+//func (as *AsyncServer) onIdleTimeout(ctx context.context, connection netpoll.Connection) context.context {
 //	// 连接空闲超时处理，由于目前netpoll不支持连接超时，所以需要手动实现
 //	// 创建一个channel，作为连接的心跳通道
 //	ch := make(chan struct{})
