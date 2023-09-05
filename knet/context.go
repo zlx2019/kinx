@@ -27,11 +27,11 @@ func (hc *HandlerContext) Get(key any) any {
 }
 
 // NewHandlerContext 创建数据处理上下文
-func NewHandlerContext(s kiface.ISession, m kiface.IMessage) kiface.IHandlerContext {
+func NewHandlerContext(s kiface.ISession, m kiface.IMessage, ctx context.Context) kiface.IHandlerContext {
 	return &HandlerContext{
 		s:       s,
 		message: m,
-		c:       context.Background(),
+		c:       ctx,
 	}
 }
 

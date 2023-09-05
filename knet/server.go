@@ -6,6 +6,7 @@ package knet
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/panjf2000/ants/v2"
 	"github.com/zlx2019/kinx/kiface"
@@ -42,16 +43,17 @@ type NormalServer struct {
 }
 
 // NewNormalServer 创建服务端
-// @param	name	服务名
-// @param	ip		服务IP
-// @param	port	服务端口
 // @param	opts	服务配置
-func NewNormalServer(name, ip string, port int, opts ...NormalServerOption) kiface.IServer {
+func NewNormalServer(opts ...NormalServerOption) kiface.IServer {
+	// 解析命令行参数
+	flag.Parse()
+	// 加载配置文件
+	loadConfigs()
 	server := &NormalServer{
-		name:        name,
+		name:        configs.Name,
 		protocol:    "tcp",
-		iP:          ip,
-		port:        port,
+		iP:          configs.Host,
+		port:        configs.Port,
 		stopTrigger: make(chan struct{}),
 	}
 	// 注册要设置的配置

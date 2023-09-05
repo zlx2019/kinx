@@ -57,7 +57,7 @@ func WithPool(capacity int) NormalServerOption {
 func newPool(capacity int) *ants.Pool {
 	pool, _ := ants.NewPool(capacity, func(opt *ants.Options) {
 		// 是否关闭回收空闲的work
-		opt.DisablePurge = false
+		opt.DisablePurge = true
 		// 回收空闲work的间隔。当DisablePurge为false时才生效
 		// 如5 * time.Second 表示空闲5秒后的work会被回收掉
 		opt.ExpiryDuration = time.Second * 3
@@ -76,5 +76,6 @@ func newPool(capacity int) *ants.Pool {
 			log.Printf("ants pool panic: %v \n", i)
 		}
 	})
+	pool.Running()
 	return pool
 }

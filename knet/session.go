@@ -93,7 +93,7 @@ func (ns *NormalSession) Reader() {
 		}
 		// 读取到会话连接的数据，回调注册的处理函数链
 		if ns.handler != nil {
-			ctx := NewHandlerContext(ns, message)
+			ctx := NewHandlerContext(ns, message, ns.context)
 			if err := ns.handler.OnHandler(ctx); err != nil {
 				ns.Stop()
 			}

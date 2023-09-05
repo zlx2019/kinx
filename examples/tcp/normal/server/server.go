@@ -15,10 +15,9 @@ import (
 
 // NewNormalServer 案例一: 基于事件回调模型开发
 // 阻塞式TCP服务 - 服务端
-
 func main() {
 	// 创建服务端
-	s := knet.NewNormalServer("[kinx V1.0]", "127.0.0.1", 9780,
+	s := knet.NewNormalServer(
 		// 设置协程池数量
 		knet.WithPool(1000),
 		// 设置连接空闲超时时间
@@ -43,7 +42,6 @@ func (c *CustomHandler) OnConnectHandler(conn net.Conn) context.Context {
 }
 
 func (c *CustomHandler) OnHandler(ctx kiface.IHandlerContext) error {
-	ctx.GetSession()
 	message := ctx.GetMessage()
 	msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
 	fmt.Println(msg)
