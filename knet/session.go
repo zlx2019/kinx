@@ -78,8 +78,8 @@ func (ns *NormalSession) Reader() {
 		// 读取错误处理
 		if err != nil {
 			if err == io.EOF || ns.IsClosed {
-				// err == io.EOF 表示客户端主动关闭;
-				// ns.IsClosed  表示服务端主动关闭，连接被close: 超时被强制关闭 | 处理函数抛出错误;
+				// err == io.EOF 	 表示客户端主动关闭;
+				// IsClosed == true  表示服务端主动将客户端连接关闭;(超时|处理函数返回错误)
 				fmt.Printf("[%s] Session ID: %d Reader Work Shutdown... \n", ns.GetRemoteAddr(), ns.ID)
 				// 停止任务
 				ns.Stop()
@@ -105,15 +105,15 @@ func (ns *NormalSession) Reader() {
 func (ns *NormalSession) Writer() {
 	fmt.Printf("[%s] Session ID: %d Writer Work Running... \n", ns.GetRemoteAddr(), ns.ID)
 	for {
-		select {
-		case msg, ok := <-ns.outChannel:
-			if !ok {
-				// 消息通道已关闭，表示已经执行了Stop()方法，会话关闭
-				fmt.Printf("[%s] Session ID: %d Writer Work Shutdown... \n", ns.GetRemoteAddr(), ns.ID)
-				return
-			}
-			_ = ns.Write(msg)
+		// 阻塞等待 从消息通道内获取消息，将消息写回到客户端
+		message, ok := <-ns.outChannel
+		// 消息通道已关闭，表示客户端连接已关闭，退出当前协程
+		if !ok && ns.IsClosed {
+			fmt.Printf("[%s] Session ID: %d Writer Work Shutdown... \n", ns.GetRemoteAddr(), ns.ID)
+			return
 		}
+		// 将消息数据写入到客户端连接
+		_ = ns.Write(message)
 	}
 }
 
@@ -135,7 +135,7 @@ func (ns *NormalSession) idleTimeOuter() {
 			return
 		case <-time.After(ns.idleTimeout):
 			// 会话连接超时退出
-			_, _ = ns.GetConn().Write([]byte("您超时了!"))
+			_, _ = ns.Conn.Write([]byte("您超时了!"))
 			ns.Stop()
 			return
 		}
@@ -163,9 +163,9 @@ func (ns *NormalSession) Write(message kiface.IMessage) error {
 }
 
 // GetConn 获取会话的客户端连接
-func (ns *NormalSession) GetConn() net.Conn {
-	return ns.Conn
-}
+//func (ns *NormalSession) GetConn() net.Conn {
+//	return ns.Conn
+//}
 
 // GetSessionID 获取会话的ID
 func (ns *NormalSession) GetSessionID() uint32 {
@@ -183,13 +183,13 @@ func (ns *NormalSession) Stop() {
 	if !ns.IsClosed {
 		// 将会话标记为已关闭
 		ns.IsClosed = true
-		// 关闭会话的消息通道，借此关闭写协程
+		// 关闭会话的消息通道，从而关闭写协程
 		close(ns.outChannel)
 		// 关闭会话上下文
 		ns.cancel()
 		// 执行 连接关闭的回调函数
 		_ = ns.handler.OnClosedHandler(ns.Conn)
-		// 关闭连接
+		// 关闭客户端连接
 		_ = ns.Conn.Close()
 	}
 }

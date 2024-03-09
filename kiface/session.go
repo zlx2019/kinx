@@ -14,7 +14,7 @@ import (
 // 将连接抽象为会话，由会话管理连接
 type ISession interface {
 	// GetConn 获取会话的连接
-	GetConn() net.Conn
+	//GetConn() net.Conn
 	// GetSessionID  获取会话ID
 	GetSessionID() uint32
 	// GetRemoteAddr 获取连接的地址信息

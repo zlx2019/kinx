@@ -10,6 +10,7 @@ import (
 	"github.com/zlx2019/kinx/kiface"
 	"github.com/zlx2019/kinx/knet"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -36,18 +37,29 @@ type CustomHandler struct {
 	kiface.SuperHandler
 }
 
+// OnConnectHandler 会话连接事件
 func (c *CustomHandler) OnConnectHandler(conn net.Conn) context.Context {
 	fmt.Printf("[%s] 已连接... \n", conn.RemoteAddr())
 	return context.Background()
 }
 
+// OnHandler 会话有数据处理事件
 func (c *CustomHandler) OnHandler(ctx kiface.IHandlerContext) error {
 	message := ctx.GetMessage()
-	msg := fmt.Sprintf("ID: %d message: %s", message.ID(), string(message.Payload()))
+	msg := fmt.Sprintf("[%s]: %s", ctx.GetSession().GetRemoteAddr(), string(message.Payload()))
 	fmt.Println(msg)
+
+	// 写回消息
+	_ = ctx.GetSession().Write(message)
+
+	// 关闭会话
+	if strings.Contains(msg, "stop") {
+		ctx.GetSession().Stop()
+	}
 	return nil
 }
 
+// OnClosedHandler 会话关闭事件
 func (c *CustomHandler) OnClosedHandler(conn net.Conn) error {
 	fmt.Printf("[%s] 已关闭... \n", conn.RemoteAddr())
 	return nil

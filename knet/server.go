@@ -140,11 +140,11 @@ func (n *NormalServer) start() {
 			continue
 		}
 		// 判断当前协程池内数量是否够用
-		if !n.checkTaskQuantity() {
-			_, _ = conn.Write([]byte("当前系统繁忙，请稍后再试~"))
-			_ = conn.Close()
-			continue
-		}
+		//if !n.checkTaskQuantity() {
+		//	_, _ = conn.Write([]byte("当前系统繁忙，请稍后再试~"))
+		//	_ = conn.Close()
+		//	continue
+		//}
 		fmt.Printf("Conn session successful. ID of: %d \n", n.nextSessionID)
 		// 连接建立完成，回调连接建立事件处理函数，获取自定义的会话的上下文
 		var ctx context.Context
